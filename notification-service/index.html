@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Система уведомлений RUT-MIIT</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+        }
+        #status {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #dc3545;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        .status-connected {
+            color: #28a745 !important;
+            background: #d4edda !important;
+        }
+        .notification {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 5px solid;
+            border-radius: 4px;
+            animation: slideIn 0.5s ease-out;
+            transition: transform 0.2s;
+        }
+        .notification:hover {
+            transform: translateX(5px);
+        }
+        /* Стили для вердиктов */
+        .verdict-EXCELLENT {
+            background-color: #e8f5e9;
+            border-color: #2e7d32;
+            color: #1b5e20;
+        }
+        .verdict-GOOD {
+            background-color: #e3f2fd;
+            border-color: #1565c0;
+            color: #0d47a1;
+        }
+        .verdict-AVERAGE {
+            background-color: #fff3e0;
+            border-color: #ef6c00;
+            color: #e65100;
+        }
+        .verdict-NEEDS_IMPROVEMENT {
+            background-color: #ffebee;
+            border-color: #c62828;
+            color: #b71c1c;
+        }
+        /* Стили для уведомлений о самокатах */
+        .scooter-created {
+            background-color: #e8f5e9;
+            border-color: #4caf50;
+            color: #2e7d32;
+        }
+        .scooter-deleted {
+            background-color: #ffebee;
+            border-color: #f44336;
+            color: #c62828;
+        }
+        .notification-user {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .notification-score {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .notification-verdict {
+            font-style: italic;
+            margin-top: 5px;
+            font-size: 0.95em;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .empty-state {
+            text-align: center;
+            color: #6c757d;
+            padding: 30px;
+            font-style: italic;
+        }
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .stats button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .stats button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Центр уведомлений - Аренда самокатов</h2>
+    <div id="status">Отключено</div>
+    <div id="notifications-area">
+        <div class="empty-state" id="emptyState">Ожидание уведомлений...</div>
+    </div>
+
+    <div class="stats">
+        <div>Активных WebSocket подключений: <span id="connectionCount">0</span></div>
+        <button onclick="getStats()">Обновить статистику</button>
+    </div>
+</div>
+
+<script>
+    const statusDiv = document.getElementById('status');
+    const area = document.getElementById('notifications-area');
+    const emptyState = document.getElementById('emptyState');
+    const connectionCount = document.getElementById('connectionCount');
+    let socket;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+
+    function connect() {
+        socket = new WebSocket('ws://localhost:8083/ws/notifications');
+
+        socket.onopen = () => {
+            reconnectAttempts = 0;
+            statusDiv.innerText = '✅ Подключено к системе событий';
+            statusDiv.classList.add('status-connected');
+
+            if (emptyState) {
+                emptyState.style.display = 'none';
+            }
+
+            console.log('WebSocket соединение установлено');
+            getStats(); // Получить статистику при подключении
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log("Получено событие:", data);
+
+                if (data.type === 'USER_RATING_UPDATED' || data.type === 'RATING_UPDATE') {
+                    showRatingNotification({
+                        userId: data.userId,
+                        ratingScore: data.ratingScore || data.score,
+                        verdict: data.verdict
+                    });
+                } else if (data.type === 'SCOOTER_CREATED') {
+                    showScooterNotification(data);
+                } else if (data.type === 'SCOOTER_DELETED') {
+                    showScooterDeletedNotification(data);
+                } else {
+                    console.log('Неизвестный тип события:', data.type);
+                }
+
+            } catch (error) {
+                console.error("Ошибка парсинга JSON:", error);
+            }
+        };
+
+        socket.onclose = (event) => {
+            statusDiv.innerText = '❌ Соединение разорвано';
+            statusDiv.classList.remove('status-connected');
+
+            if (reconnectAttempts < maxReconnectAttempts) {
+                const delay = 3000 * (reconnectAttempts + 1);
+                reconnectAttempts++;
+
+                setTimeout(() => {
+                    console.log(`Попытка переподключения #${reconnectAttempts}`);
+                    connect();
+                }, delay);
+            }
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket ошибка:', error);
+        };
+    }
+
+    function showRatingNotification(data) {
+        const div = document.createElement('div');
+
+        let verdictClass = 'verdict-' + data.verdict;
+
+        const icons = {
+            'EXCELLENT': '🏆',
+            'GOOD': '👍',
+            'AVERAGE': '📊',
+            'NEEDS_IMPROVEMENT': '⚠️'
+        };
+        const icon = icons[data.verdict] || 'ℹ️';
+
+        const verdictTexts = {
+            'EXCELLENT': 'Отличный результат!',
+            'GOOD': 'Хороший рейтинг',
+            'AVERAGE': 'Средний рейтинг',
+            'NEEDS_IMPROVEMENT': 'Требуется улучшение'
+        };
+        const verdictText = verdictTexts[data.verdict] || data.verdict;
+
+        div.className = `notification ${verdictClass}`;
+        div.innerHTML = `
+            <div class="notification-user">
+                ${icon} Пользователь #${data.userId}
+            </div>
+            <div class="notification-score">Рейтинг: ${data.ratingScore}/100</div>
+            <div class="notification-verdict">${verdictText}</div>
+        `;
+
+        area.insertBefore(div, area.firstChild);
+
+        if (emptyState && emptyState.style.display !== 'none') {
+            emptyState.style.display = 'none';
+        }
+
+        // Ограничиваем количество уведомлений
+        const maxNotifications = 10;
+        const notifications = area.querySelectorAll('.notification');
+        if (notifications.length > maxNotifications) {
+            notifications[notifications.length - 1].remove();
+        }
+    }
+
+    function showScooterNotification(data) {
+        const div = document.createElement('div');
+
+        div.className = 'notification scooter-created';
+        div.innerHTML = `
+            <div class="notification-user">
+                🛴 Новый самокат добавлен
+            </div>
+            <div class="notification-score">ID: ${data.scooterId}</div>
+            <div class="notification-verdict">Модель: ${data.model || data.serialNumber || 'Не указана'}</div>
+        `;
+
+        area.insertBefore(div, area.firstChild);
+
+        if (emptyState && emptyState.style.display !== 'none') {
+            emptyState.style.display = 'none';
+        }
+    }
+
+    function showScooterDeletedNotification(data) {
+        const div = document.createElement('div');
+
+        div.className = 'notification scooter-deleted';
+        div.innerHTML = `
+            <div class="notification-user">
+                ❌ Самокат удален
+            </div>
+            <div class="notification-verdict">ID удаленного самоката: ${data.scooterId}</div>
+        `;
+
+        area.insertBefore(div, area.firstChild);
+    }
+
+    function getStats() {
+        fetch('http://localhost:8083/api/notifications/stats')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                connectionCount.textContent = data.activeConnections || 0;
+            })
+            .catch(error => {
+                console.error('Ошибка получения статистики:', error);
+                connectionCount.textContent = 'N/A';
+            });
+    }
+
+    window.addEventListener('load', () => {
+        connect();
+        // Автообновление статистики каждые 10 секунд
+        setInterval(getStats, 10000);
+    });
+</script>
+</body>
+</html>

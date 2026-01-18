@@ -1,0 +1,89 @@
+type User {
+    id: ID!
+    fullName: String!
+    phone: String!
+}
+
+type Scooter {
+    id: ID!
+    model: String!
+    serialNumber: String!
+    available: Boolean!
+    createdAt: String!
+}
+
+type Rental {
+    id: ID!
+    user: User!
+    scooter: Scooter!
+    startTime: String!
+    endTime: String
+}
+
+type ScooterPage {
+    content: [Scooter!]!
+    pageNumber: Int!
+    pageSize: Int!
+    totalElements: Int!
+    totalPages: Int!
+    last: Boolean!
+}
+
+type RentalPage {
+    content: [Rental!]!
+    pageNumber: Int!
+    pageSize: Int!
+    totalElements: Int!
+    totalPages: Int!
+    last: Boolean!
+}
+
+type Query {
+    # Пользователи
+    users: [User!]!
+    userById(id: ID!): User
+
+    # Самокаты
+    scooters(available: Boolean, page: Int = 0, size: Int = 10): ScooterPage!
+    scooterById(id: ID!): Scooter
+
+    # Аренды
+    rentals(userId: ID, page: Int = 0, size: Int = 10): RentalPage!
+    rentalById(id: ID!): Rental
+}
+
+input UserInput {
+    fullName: String!
+    phone: String!
+}
+
+input ScooterInput {
+    model: String!
+    serialNumber: String!
+}
+
+input UpdateScooterInput {
+    model: String!
+    serialNumber: String!
+}
+
+input RentalInput {
+    userId: ID!
+    scooterId: ID!
+}
+
+type Mutation {
+    # Пользователи
+    createUser(input: UserInput!): User!
+    updateUser(id: ID!, input: UserInput!): User!
+    deleteUser(id: ID!): ID!
+
+    # Самокаты
+    createScooter(input: ScooterInput!): Scooter!
+    updateScooter(id: ID!, input: UpdateScooterInput!): Scooter!
+    deleteScooter(id: ID!): ID!
+
+    # Аренды
+    startRental(input: RentalInput!): Rental!
+    finishRental(id: ID!): Rental!
+}
