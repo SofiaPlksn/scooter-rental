@@ -16,7 +16,6 @@ public class UserRatingEventListener {
 
     @RabbitListener(
             bindings = @QueueBinding(
-                    // Уникальная очередь для audit-service
                     value = @Queue(name = "q.audit.user.ratings", durable = "true"),
                     exchange = @Exchange(name = "analytics-fanout", type = "fanout")
             )
