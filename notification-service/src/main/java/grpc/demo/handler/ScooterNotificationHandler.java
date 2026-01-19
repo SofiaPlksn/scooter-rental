@@ -53,7 +53,6 @@ public class ScooterNotificationHandler extends TextWebSocketHandler {
         broadcast(message);
     }
 
-    // ИЗМЕНЕНО: Обновлен формат JSON для вашего HTML
     public void sendScooterCreatedNotification(Long scooterId, String model) {
         String message = String.format(
                 "{\"type\":\"SCOOTER_CREATED\",\"scooterId\":%d,\"model\":\"%s\"}",
@@ -62,7 +61,6 @@ public class ScooterNotificationHandler extends TextWebSocketHandler {
         broadcast(message);
     }
 
-    // ДОБАВЛЕНО: Метод для уведомления об удалении самоката
     public void sendScooterDeletedNotification(Long scooterId) {
         String message = String.format(
                 "{\"type\":\"SCOOTER_DELETED\",\"scooterId\":%d}",
@@ -71,7 +69,7 @@ public class ScooterNotificationHandler extends TextWebSocketHandler {
         broadcast(message);
     }
 
-    // ИЗМЕНЕНО: Публичный метод для broadcast (чтобы можно было вызывать из контроллера)
+    // Публичный метод для broadcast (чтобы можно было вызывать из контроллера)
     public int broadcast(String message) {
         TextMessage textMessage = new TextMessage(message);
         int sent = 0;

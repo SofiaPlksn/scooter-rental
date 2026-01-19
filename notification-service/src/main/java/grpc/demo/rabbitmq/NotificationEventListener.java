@@ -21,7 +21,6 @@ public class NotificationEventListener {
         this.notificationHandler = notificationHandler;
     }
 
-    // Слушаем события рейтинга пользователей
     @RabbitListener(
             bindings = @QueueBinding(
                     value = @Queue(name = "q.notifications.user.ratings", durable = "true"),
@@ -32,7 +31,6 @@ public class NotificationEventListener {
         log.info("Получено событие рейтинга пользователя: userId={}, score={}, verdict={}",
                 event.userId(), event.ratingScore(), event.verdict());
 
-        // Формируем JSON в формате, который ожидает HTML
         String jsonMessage = String.format(
                 "{\"type\":\"USER_RATING_UPDATED\",\"userId\":%d,\"ratingScore\":%d,\"verdict\":\"%s\"}",
                 event.userId(),
@@ -46,7 +44,6 @@ public class NotificationEventListener {
         log.debug("Отправлено WebSocket уведомление: {}", jsonMessage);
     }
 
-    // Слушаем события создания самокатов
     @RabbitListener(
             bindings = @QueueBinding(
                     value = @Queue(name = "q.notifications.scooter.created", durable = "true"),
@@ -58,7 +55,6 @@ public class NotificationEventListener {
         log.info("Получено событие создания самоката: scooterId={}, model={}, serial={}",
                 event.scooterId(), event.model(), event.serialNumber());
 
-        // Формируем JSON для уведомления о создании самоката
         String jsonMessage = String.format(
                 "{\"type\":\"SCOOTER_CREATED\",\"scooterId\":%d,\"model\":\"%s\",\"serialNumber\":\"%s\"}",
                 event.scooterId(),
@@ -72,7 +68,6 @@ public class NotificationEventListener {
         log.debug("Отправлено WebSocket уведомление: {}", jsonMessage);
     }
 
-    // ДОБАВЬТЕ этот метод для событий удаления самокатов
     @RabbitListener(
             bindings = @QueueBinding(
                     value = @Queue(name = "q.notifications.scooter.deleted", durable = "true"),
@@ -83,7 +78,6 @@ public class NotificationEventListener {
     public void handleScooterDeletedEvent(edu.rutmiit.demo.events.ScooterDeletedEvent event) {
         log.info("Получено событие удаления самоката: scooterId={}", event.scooterId());
 
-        // Формируем JSON для уведомления об удалении самоката
         String jsonMessage = String.format(
                 "{\"type\":\"SCOOTER_DELETED\",\"scooterId\":%d}",
                 event.scooterId()
